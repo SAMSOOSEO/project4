@@ -1,78 +1,108 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Rented Bike Count by Season</title>
-  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <meta charset="UTF-8" />
+  <title>Han River Bike Rentals Analysis</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- 외부 CSS -->
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- D3.js -->
+  <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+
   <style>
-    body { font-family: sans-serif; }
-    svg { border: 1px solid #ccc; }
-    .bar { fill: steelblue; }
-    .bar:hover { fill: orange; }
-    .axis-label { font-size: 14px; font-weight: bold; }
+    /* 막대그래프 가로정렬 */
+    .bar-charts-container {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      justify-content: space-between;
+    }
+    .vis-bar-wrapper {
+      flex: 1;
+      min-width: 150px;
+    }
+    .vis-bar-wrapper h3 {
+      text-align: center;
+      margin-bottom: 5px;
+      font-size: 14px;
+    }
+    /* 카드 스타일 강조 */
+    .card.bar-charts-container {
+      padding: 16px;
+      border-radius: 14px;
+      background: #f9fafc;
+      border: 1px solid #e1e5f0;
+    }
   </style>
 </head>
 <body>
-  <h1>Rented Bike Count by Season</h1>
-  <div id="chart"></div>
+  <header class="site-header">
+    <h1>When Is the Best Time to Ride a Bike Along the Han River?</h1>
+    <p class="subtitle">
+      Using one year of bike rental and weather data from Seoul to discover the ideal time and conditions
+      for riding along the Han River.
+    </p>
+  </header>
 
-  <script>
-    const margin = {top: 40, right: 30, bottom: 50, left: 60};
-    const width = 600 - margin.left - margin.right;
-    const height = 400 - margin.top - margin.bottom;
+  <main class="container">
 
-    const svg = d3.select("#chart")
-      .append("svg")
-      .attr("width", width + margin.left + margin.right)
-      .attr("height", height + margin.top + margin.bottom)
-      .append("g")
-      .attr("transform", `translate(${margin.left},${margin.top})`);
+    <!-- Scatter Plot: Date vs Total Rental -->
+<section class="section" id="vis2-section">
+  <h2 id="scatter-title">Daily Bike Rentals Over the Year (Brush period : None)</h2>
+  <div class="scatter-wrapper" style="display: flex; align-items: flex-start; gap: 20px;">
+    <div id="vis-scatter" class="vis-container" style="flex: 1; min-width: 0;"></div>
+    <div id="scatter-legend" style="flex-shrink: 0;"></div>
+  </div>
+</section>
 
-    // CSV 파일 불러오기
-    d3.csv("bike.csv").then(data => {
-      // Seasons별 합계 계산
-      const summary = Array.from(
-        d3.rollup(data, v => d3.sum(v, d => +d["Rented Bike Count"]), d => d.Seasons),
-        ([Season, total]) => ({ Season, total })
-      );
+    <!-- Average Metrics Bar Charts for Selected Data -->
+    <section class="section" id="vis-bar-section">
+      <h2>How Weather Affected Bike Rentals</h2>
+      <div class="card bar-charts-container">
+        <div class="vis-bar-wrapper">
+          <h3>Temperature (℃)</h3>
+          <div id="vis-bar-temp" class="vis-bar"></div>
+        </div>
+        <div class="vis-bar-wrapper">
+          <h3>Humidity (%)</h3>
+          <div id="vis-bar-humidity" class="vis-bar"></div>
+        </div>
+        <div class="vis-bar-wrapper">
+          <h3>Wind Speed (m/s)</h3>
+          <div id="vis-bar-wind" class="vis-bar"></div>
+        </div>
+        <div class="vis-bar-wrapper">
+          <h3>Solar Radiation</h3>
+          <div id="vis-bar-solar" class="vis-bar"></div>
+        </div>
+        <div class="vis-bar-wrapper">
+          <h3>Rainfall (mm)</h3>
+          <div id="vis-bar-rain" class="vis-bar"></div>
+        </div>
+      </div>
+    </section>
 
-      // X축, Y축 스케일
-      const x = d3.scaleBand()
-        .domain(summary.map(d => d.Season))
-        .range([0, width])
-        .padding(0.2);
+    <!-- Heatmap: Hour × Avg Rented Bikes -->
+    <section class="section" id="vis1-section">
+      <h2>Hourly Rental Patterns (<span id="max-hour-display">--</span>)</h2>
 
-      const y = d3.scaleLinear()
-        .domain([0, d3.max(summary, d => d.total)])
-        .nice()
-        .range([height, 0]);
+      <div id="vis-heatmap" class="vis-container"></div>
 
-      // X축
-      svg.append("g")
-        .attr("transform", `translate(0,${height})`)
-        .call(d3.axisBottom(x));
+    </section>
 
-      // Y축
-      svg.append("g")
-        .call(d3.axisLeft(y));
+<section class="section" id="correlation-section">
+  <h2>The Factors Most Strongly Correlated with Bike Rentals <span id="important-factors">--</span></h2>
+  <div id="vis-corr" class="vis-container"></div>
+</section>
 
-      // Bars
-      svg.selectAll(".bar")
-        .data(summary)
-        .join("rect")
-        .attr("class", "bar")
-        .attr("x", d => x(d.Season))
-        .attr("y", d => y(d.total))
-        .attr("width", x.bandwidth())
-        .attr("height", d => height - y(d.total));
-    }).catch(err => {
-      console.error("CSV 불러오기 오류:", err);
-    });
-  </script>
-<H1>Write up</H1>
-  <p>
-So far, I have selected an appropriate dataset for my project and have also created the main page of the web application. I focused on organizing the layout to ensure it is user-friendly and easy to navigate. I have started thinking about how to present the data clearly and effectively on the webpage. One of the most challenging parts of the project will likely be deriving meaningful insights from the data through visualization. It will require careful consideration to decide which types of charts best represent the data. Additionally, data processing and transformation will be crucial to ensure the visualizations are accurate and informative. I anticipate that coding and implementing these visualizations might also be quite difficult. Overall, the combination of designing the webpage, processing the data, and choosing the right visualization methods will be the main challenges I need to overcome.
-  </p>
+
+
+    
+  </main>
+
+
+  <script src="main.js"></script>
 </body>
 </html>
