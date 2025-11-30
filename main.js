@@ -1,11 +1,11 @@
 console.log("Han River bike project loaded!");
 
 // -------------------------------
-// 1) Load CSV and preprocess data
+// 1) Load CSV data and prepare it
 // -------------------------------
 d3.csv("bike.csv").then((data) => {
 
-  // Convert numeric fields + parse Date
+  // Convert fields to numbers and parse the Date
   data.forEach(d => {
     d["Rented Bike Count"] = +d["Rented Bike Count"];
     d.Temperature = +d.Temperature;
@@ -17,22 +17,18 @@ d3.csv("bike.csv").then((data) => {
     d.Snowfall = +d.Snowfall;
     d.Hour = +d.Hour;
 
-    // Parse date assuming format: DD/MM/YYYY
+    // Convert string date "DD/MM/YYYY" → JavaScript Date object
     const parts = d.Date.split("/");
     const dateObj = new Date(parts[2], parts[1] - 1, parts[0]);
     d.Date = isNaN(dateObj) ? null : dateObj;
   });
 
-  // Keep only rows with a valid Date
+  // Keep only rows with valid dates
   const validData = data.filter(d => d.Date);
 
   // -------------------------------
-  // 2) Daily scatter plot
+  // 2) Daily scatter plot (total rentals per day)
   // -------------------------------
-  // Aggregate data per day:
-  //  - sumRent: total rentals
-  //  - averages for weather variables
-  //  - Season taken from the first row in the group
   const scatterDataDaily = d3.rollups(
     validData,
     v => ({
@@ -48,6 +44,7 @@ d3.csv("bike.csv").then((data) => {
   ).map(([date, d]) => ({ Date: new Date(date), ...d }))
    .filter(d => d.sumRent > 0); // drop days with no rentals
 
+  // Set up SVG canvas for scatter plot
   const scatterWidth = 800, scatterHeight = 130;
   const scatterMargin = { top: 60, right: 40, bottom: 60, left: 100 };
 
@@ -59,23 +56,23 @@ d3.csv("bike.csv").then((data) => {
     .append("g")
     .attr("transform", `translate(${scatterMargin.left},${scatterMargin.top})`);
 
-  // Time scale for daily points
+  // X scale: time (dates)
   const xScatter = d3.scaleTime()
     .domain(d3.extent(scatterDataDaily, d => d.Date))
     .range([0, scatterWidth]);
 
-  // Total daily rentals on the y-axis
+  // Y scale: total daily rentals
   const yScatter = d3.scaleLinear()
     .domain(d3.extent(scatterDataDaily, d => d.sumRent))
     .range([scatterHeight, 0])
     .nice();
 
-  // Color by season
+  // Color scale for seasons
   const seasonColor = d3.scaleOrdinal()
     .domain(["Winter", "Spring", "Summer", "Autumn"])
     .range(["#1f77b4", "#2ca02c", "#ff7f0e", "#d62728"]);
 
-  // Tooltip for scatter plot
+  // Tooltip for showing detailed info on hover
   const tooltip = d3.select("body").append("div")
     .attr("class", "tooltip")
     .style("opacity", 0)
@@ -87,7 +84,7 @@ d3.csv("bike.csv").then((data) => {
     .style("pointer-events", "none")
     .style("font-size", "12px");
 
-  // Scatter points (one per day)
+  // Draw scatter points for each day
   const circles = svgScatter.selectAll("circle")
     .data(scatterDataDaily)
     .enter()
@@ -97,7 +94,7 @@ d3.csv("bike.csv").then((data) => {
     .attr("r", 3)
     .attr("fill", d => seasonColor(d.Season));
 
-  // Scatter tooltip interactions
+  // Tooltip interaction
   circles.on("mouseover", (event, d) => {
     tooltip.transition().duration(100).style("opacity", 1);
     const dateStr = d.Date ? d.Date.toLocaleDateString() : "N/A";
@@ -114,20 +111,20 @@ d3.csv("bike.csv").then((data) => {
     .style("top", (event.pageY - 28) + "px");
   }).on("mouseout", () => tooltip.transition().duration(200).style("opacity", 0));
 
-  // X-axis: months (Jan, Feb, ...)
+  // X-axis: month labels
   svgScatter.append("g")
     .attr("transform", `translate(0,${scatterHeight})`)
     .call(d3.axisBottom(xScatter).ticks(d3.timeMonth.every(1)).tickFormat(d3.timeFormat("%b")))
     .selectAll("text")
     .style("font-size", "14px");
 
-  // Y-axis: total rented bike count
+  // Y-axis: total rentals
   svgScatter.append("g")
     .call(d3.axisLeft(yScatter).ticks(5))
     .selectAll("text")
     .style("font-size", "14px");
 
-  // X-axis label
+  // Axis labels
   svgScatter.append("text")
     .attr("x", scatterWidth / 2)
     .attr("y", scatterHeight + scatterMargin.bottom - 10)
@@ -136,7 +133,6 @@ d3.csv("bike.csv").then((data) => {
     .style("font-weight", "bold")
     .text("Month");
 
-  // Y-axis label
   svgScatter.append("text")
     .attr("transform", "rotate(-90)")
     .attr("x", -scatterHeight / 2)
@@ -147,14 +143,13 @@ d3.csv("bike.csv").then((data) => {
     .text("Total Rented Bike Count");
 
   // -------------------------------
-  // Legend for scatter plot seasons
+  // Scatter plot legend for seasons
   // -------------------------------
   const legendData = ["Winter", "Spring", "Summer", "Autumn"];
   const legendColor = d3.scaleOrdinal()
     .domain(legendData)
     .range(["#1f77b4", "#2ca02c", "#ff7f0e", "#d62728"]);
 
-  // Build HTML legend for seasons
   const legendEl = d3.select("#scatter-legend");
   legendEl.html(""); // clear existing content
 
@@ -179,7 +174,7 @@ d3.csv("bike.csv").then((data) => {
     .text(d => d);
 
   // -------------------------------
-  // 3) Hour × Avg Rented Bikes heatmap
+  // 3) Hourly rental heatmap
   // -------------------------------
   const heatmapWidth = 900, heatmapHeight = 70;
   const heatmapMargin = { top: 10, right: 30, bottom: 20, left: 40 };
@@ -196,20 +191,18 @@ d3.csv("bike.csv").then((data) => {
   const xScaleHeat = d3.scaleBand().domain(hours).range([0, heatmapWidth]).padding(0.05);
   const yScaleHeat = d3.scaleLinear().range([heatmapHeight, 0]);
 
-  // Update heatmap based on a given subset of data (e.g., brushed selection)
+  // Update heatmap with filtered/selected data
   function updateHeatmap(selectedData) {
-    // Compute hourly average rentals for this subset
     const heatmapData = hours.map(hour => {
       const filtered = selectedData.filter(d => d.Hour === hour);
       const avgRent = d3.mean(filtered, d => d["Rented Bike Count"]) || 0;
       return { hour, avgRent };
     });
 
-    // Compute peak hour (24h) and convert to 12h AM/PM format
+    // Peak hour computation
     const maxVal = d3.max(heatmapData, d => d.avgRent);
     const maxHour24 = heatmapData.find(d => d.avgRent === maxVal)?.hour;
 
-    // Helper: convert 0–23 → 12-hour label
     const to12h = (h) => {
       if (h == 0) return "12 AM";
       if (h < 12) return `${h} AM`;
@@ -219,22 +212,19 @@ d3.csv("bike.csv").then((data) => {
 
     let peakDisplay = "–";
     if (maxHour24 != null) {
-      const peakHour12 = to12h(maxHour24).replace(" ", ""); // e.g., "6PM"
+      const peakHour12 = to12h(maxHour24).replace(" ", "");
       const peakAvg = Math.round(maxVal);
       peakDisplay = `Peak Hour: ${peakHour12}, Rental Average: ${d3.format(",")(peakAvg)}`;
     }
 
-    // Show peak hour summary text above / near the heatmap
     d3.select("#max-hour-display")
       .html(`<span style="color:#2980b9; font-weight:bold; font-size:18px;">
         ${peakDisplay}
       </span>`);
 
-    // Update y-scale and color scale
     yScaleHeat.domain([0, maxVal]).nice(3);
     const colorScale = d3.scaleSequential(d3.interpolateBlues).domain([0, maxVal + 500]);
 
-    // Draw heatmap rectangles
     const rects = svgHeatmap.selectAll("rect").data(heatmapData);
     rects.enter().append("rect")
       .merge(rects)
@@ -246,7 +236,6 @@ d3.csv("bike.csv").then((data) => {
       .attr("stroke", "#fff");
     rects.exit().remove();
 
-    // Numeric labels inside each cell
     const texts = svgHeatmap.selectAll(".label").data(heatmapData);
     texts.enter()
       .append("text")
@@ -258,11 +247,9 @@ d3.csv("bike.csv").then((data) => {
       .style("font-size", "10px")
       .style("fill", "black")
       .style("font-weight", "bold")
-      .style("pointer-events", "none")
       .text(d => Math.round(d.avgRent));
     texts.exit().remove();
 
-    // Refresh axes
     svgHeatmap.selectAll(".x-axis").remove();
     svgHeatmap.selectAll(".y-axis").remove();
 
@@ -276,29 +263,26 @@ d3.csv("bike.csv").then((data) => {
       .call(d3.axisLeft(yScaleHeat).ticks(3));
   }
 
-  // Initial heatmap uses all data
+  // Show heatmap for all data initially
   updateHeatmap(validData);
 
   // -------------------------------
-  // 4) Brush (link scatter ↔ heatmap / bar / correlation)
+  // 4) Brush selection linking scatter → heatmap, bars, correlation
   // -------------------------------
   const brush = d3.brush()
     .extent([[0, 0], [scatterWidth, scatterHeight]])
     .on("end", (event) => {
       let selectedDaily = scatterDataDaily;
-
-      // Default title text when nothing is brushed
       let periodText = "None";
+      let avgText = "";
 
       if (event.selection) {
         const [[x0, y0], [x1, y1]] = event.selection;
-        // Filter daily points inside the brushed region
         selectedDaily = scatterDataDaily.filter(d =>
           xScatter(d.Date) >= x0 && xScatter(d.Date) <= x1 &&
           yScatter(d.sumRent) >= y0 && yScatter(d.sumRent) <= y1
         );
 
-        // If we have any selected days, compute date range and average rentals
         if (selectedDaily.length > 0) {
           const start = d3.min(selectedDaily, d => d.Date);
           const end = d3.max(selectedDaily, d => d.Date);
@@ -310,17 +294,14 @@ d3.csv("bike.csv").then((data) => {
         }
       }
 
-      // Update scatter plot title with brushed period and average rental
       d3.select("#scatter-title")
         .html(`Daily Bike Rentals Over the Year (<span style="color:#2980b9; font-weight:bold; font-size:18px">
         Brush period: ${periodText}${avgText.replace(', Avg: ', '')}
         </span>)`);
 
-      // Convert brushed daily dates back to full rows from original data
       const selectedDates = new Set(selectedDaily.map(d => d.Date.toISOString().slice(0, 10)));
       const selectedRawData = validData.filter(d => selectedDates.has(d.Date.toISOString().slice(0, 10)));
 
-      // Update linked views
       updateHeatmap(selectedRawData);
       drawBarCharts(selectedDaily);
       drawCorrMatrix(selectedRawData);
@@ -329,7 +310,7 @@ d3.csv("bike.csv").then((data) => {
   svgScatter.append("g").attr("class", "brush").call(brush).lower();
 
   // -------------------------------
-  // 5) Bar charts for weather metrics
+  // 5) Mini bar charts for weather metrics
   // -------------------------------
   const metrics = [
     { id: "vis-bar-temp", key: "avgTemp", title: "Temperature (℃)" },
@@ -339,7 +320,6 @@ d3.csv("bike.csv").then((data) => {
     { id: "vis-bar-rain", key: "sumRain", title: "Rainfall (mm)" }
   ];
 
-  // Global max values used to fix bar chart scales
   const globalMax = {
     avgTemp: d3.max(scatterDataDaily, d => d.avgTemp),
     avgHumidity: d3.max(scatterDataDaily, d => d.avgHumidity),
@@ -348,23 +328,20 @@ d3.csv("bike.csv").then((data) => {
     sumRain: d3.sum(scatterDataDaily, d => d.sumRain) * 1.1
   };
 
-  // Global averages (or total for rainfall) for reference lines
   const globalAvg = {
     avgTemp: d3.mean(scatterDataDaily, d => d.avgTemp),
     avgHumidity: d3.mean(scatterDataDaily, d => d.avgHumidity),
     avgWind: d3.mean(scatterDataDaily, d => d.avgWind),
     avgSolar: d3.mean(scatterDataDaily, d => d.avgSolar),
-    sumRain: d3.sum(scatterDataDaily, d => d.sumRain) // note: this is a total, not an average
+    sumRain: d3.sum(scatterDataDaily, d => d.sumRain)
   };
 
-  // Draw small bar chart for each metric based on currently selected days
   function drawBarCharts(data) {
     metrics.forEach(m => {
       const values = data.map(d => d[m.key]);
       const val = m.key === "sumRain" ? d3.sum(values) : d3.mean(values);
       const safeVal = isNaN(val) ? 0 : val;
 
-      // Slightly larger width + left margin so y-axis labels don't get clipped
       const width = 180, height = 100, margin = { top: 20, right: 20, bottom: 20, left: 50 };
 
       d3.select(`#${m.id}`).html("");
@@ -379,17 +356,17 @@ d3.csv("bike.csv").then((data) => {
       const x = d3.scaleBand()
         .domain([m.title])
         .range([0, width - margin.left - margin.right])
-        .padding(0.4); // a bit of padding for nicer bar width
+        .padding(0.4);
 
       const y = d3.scaleLinear()
         .domain([0, globalMax[m.key]])
         .range([height - margin.top - margin.bottom, 0])
-        .nice(); // makes ticks land on “nice” round values
+        .nice();
 
-      // Global reference line (average or total)
+      // Draw global reference line (average/total)
       const avgVal = m.key === "sumRain" ? globalAvg[m.key] : globalAvg[m.key];
       if (!isNaN(avgVal)) {
-        const lineEndX = width - margin.left - margin.right - 25; // keep a bit of space at the right edge
+        const lineEndX = width - margin.left - margin.right - 25;
         svg.append("line")
           .attr("x1", 0)
           .attr("x2", lineEndX)
@@ -409,18 +386,15 @@ d3.csv("bike.csv").then((data) => {
           .text(m.key === "sumRain" ? "Sum" : "Avg");
       }
 
-      // Y-axis for the mini bar chart
       svg.append("g")
         .call(d3.axisLeft(y).ticks(3))
         .selectAll("text")
         .style("font-size", "11px");
 
-      // X-axis (category label only)
       svg.append("g")
         .attr("transform", `translate(0,${height - margin.top - margin.bottom})`)
         .call(d3.axisBottom(x));
 
-      // Single bar
       svg.selectAll(".bar")
         .data([safeVal])
         .enter()
@@ -432,7 +406,6 @@ d3.csv("bike.csv").then((data) => {
         .attr("height", d => Math.max(0, height - margin.top - margin.bottom - y(d)))
         .attr("fill", "#69b3a2");
 
-      // Numeric label on top of bar
       svg.selectAll(".label")
         .data([safeVal])
         .enter()
@@ -445,11 +418,10 @@ d3.csv("bike.csv").then((data) => {
     });
   }
 
-  // Initial bar charts use all daily data
   drawBarCharts(scatterDataDaily);
 
   // -------------------------------
-  // 6) Variable heatmap (correlation)
+  // 6) Correlation heatmap (Rented Bikes vs Weather)
   // -------------------------------
   const yVars = ["Rented Bike Count"];
   const xVars = [
@@ -472,19 +444,17 @@ d3.csv("bike.csv").then((data) => {
   const yScaleCorr = d3.scaleBand().domain(yVars).range([0, corrHeight]).padding(0.05);
   const colorScaleCorr = d3.scaleSequential(d3.interpolateBlues).domain([1, -1]);
 
-  // Simple Pearson correlation helper
+  // Pearson correlation function
   function corr(x, y) {
     const meanX = d3.mean(x);
     const meanY = d3.mean(y);
     const cov = d3.sum(x.map((d, i) => (d - meanX) * (y[i] - meanY)));
     const stdX = Math.sqrt(d3.sum(x.map(d => (d - meanX) ** 2)));
-    const stdY = Math.sqrt(d3.sum(y.map(d => (d - meanY) ** 2)));
+    const stdY = Math.sqrt(d3.sum(y.map(d => (y - meanY) ** 2)));
     return cov / (stdX * stdY);
   }
 
-  // Build correlation “matrix” (1 row: Rented Bike Count vs each variable)
   function drawCorrMatrix(data) {
-    // Aggregate to daily metrics first
     const dailyMetrics = d3.rollups(
       data,
       v => ({
@@ -500,14 +470,14 @@ d3.csv("bike.csv").then((data) => {
       d => d.Date.toISOString().slice(0, 10)
     ).map(([date, d]) => d);
 
-    // Compute correlation between “Rented Bike Count” and each xVar
-    const matrix = xVars.map(xVar => {
-      const value = corr(
+    const matrix = xVars.map(xVar => ({
+      x: xVar,
+      y: "Rented Bike Count",
+      value: corr(
         dailyMetrics.map(d => d["Rented Bike Count"]),
         dailyMetrics.map(d => d[xVar])
-      );
-      return { x: xVar, y: "Rented Bike Count", value };
-    });
+      )
+    }));
 
     const rects = svgCorr.selectAll("rect").data(matrix);
     rects.enter().append("rect")
@@ -520,7 +490,6 @@ d3.csv("bike.csv").then((data) => {
       .attr("stroke", "#fff");
     rects.exit().remove();
 
-    // Correlation value labels
     const labels = svgCorr.selectAll(".corr-label").data(matrix);
     labels.enter().append("text")
       .attr("class", "corr-label")
@@ -535,25 +504,14 @@ d3.csv("bike.csv").then((data) => {
       .text(d => d.value.toFixed(2));
     labels.exit().remove();
 
-    // Pick the top 2 variables with the strongest correlation (by absolute value)
     const top2 = matrix
       .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
       .slice(0, 2)
       .map(d => d.x);
 
-    // Optional mapping to nicer display names (kept simple here)
-    const formatName = name =>
-      name === "Wind speed" ? "Wind speed" :
-      name === "Dew point temperature" ? "Dew point temperature" :
-      name;
-
-    const factors = top2.map(formatName).join(", ");
-
-    // Show key factors next to title in blue
     d3.select("#important-factors")
-      .html(`(<span style="color:#2980b9; font-weight:bold">${factors}</span>)`);
+      .html(`(<span style="color:#2980b9; font-weight:bold">${top2.join(", ")}</span>)`);
 
-    // X-axis for correlation heatmap
     svgCorr.selectAll(".x-axis").remove();
     svgCorr.append("g")
       .attr("class", "x-axis")
@@ -564,7 +522,6 @@ d3.csv("bike.csv").then((data) => {
       .style("font-size", "13px")
       .attr("dy", "1em");
 
-    // Y-axis (only “Rented Bike Count” in this case)
     svgCorr.selectAll(".y-axis").remove();
     svgCorr.append("g")
       .attr("class", "y-axis")
@@ -572,8 +529,6 @@ d3.csv("bike.csv").then((data) => {
       .call(d3.axisLeft(yScaleCorr));
   }
 
-  // Initial correlation matrix uses all valid data
   drawCorrMatrix(validData);
 
 });
-  
