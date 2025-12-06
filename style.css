@@ -7,19 +7,29 @@ body {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: #f7f7fb;
   color: #222;
-  line-height: 1.6;
+  line-height: 1.4;
 }
 
 .site-header {
   background: #1f4f85;
   color: white;
-  padding: 16px;
+  padding: 5px;
   text-align: center;
 }
 
 .site-header h1 {
-  margin: 0 0 8px;
-  font-size: 1.8rem;
+    cursor: pointer;
+    text-decoration: underline; /* 클릭 가능함을 시각적으로 표시 */
+    text-underline-offset: 2px;
+}
+
+/* --- 추가된 안내 문구 스타일 (여백 최소화) --- */
+.click-info-comment {
+    font-size: 0.9em; /* 글씨 크기를 작게 설정 */
+    color: #ffffff; /* 흰색으로 설정 */
+    text-align: center;
+    margin-top: -25px; /* 제목과의 여백을 더 줄임 */
+    margin-bottom: 20px; /* 부제목과의 여백 최소화 */
 }
 
 .subtitle {

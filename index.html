@@ -1,124 +1,231 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Han River Bike Rentals Analysis</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta charset="UTF-8" />
+    <title>Han River Bike Rentals Analysis</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- External Stylesheet -->
-  <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="style.css" />
 
-  <!-- D3.js Library -->
-  <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
 
-  <style>
-    /* Layout for placing bar charts horizontally */
-    .bar-charts-container {
-      display: flex;
-      gap: 20px;
-      flex-wrap: wrap;
-      justify-content: space-between;
-    }
+    <style>
+        /* Layout for placing bar charts horizontally */
+        .bar-charts-container {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: space-between;
+        }
 
-    /* Individual bar chart container */
-    .vis-bar-wrapper {
-      flex: 1;
-      min-width: 150px;
-    }
+        /* Individual bar chart container */
+        .vis-bar-wrapper {
+            flex: 1;
+            min-width: 150px;
+        }
 
-    /* Title for each bar chart */
-    .vis-bar-wrapper h3 {
-      text-align: center;
-      margin-bottom: 5px;
-      font-size: 14px;
-    }
+        /* Title for each bar chart */
+        .vis-bar-wrapper h3 {
+            text-align: center;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
 
-    /* Card-style container for bar charts */
-    .card.bar-charts-container {
-      padding: 16px;
-      border-radius: 14px;
-      background: #f9fafc;
-      border: 1px solid #e1e5f0;
-    }
-  </style>
+        /* Card-style container for bar charts */
+        .card.bar-charts-container {
+            padding: 16px;
+            border-radius: 14px;
+            background: #f9fafc;
+            border: 1px solid #e1e5f0;
+        }
+        
+        /* --- 모달/팝업 관련 스타일 추가 시작 --- */
+        
+        /* 팝업 창 전체 배경 */
+        .modal {
+            display: none; /* 초기에는 숨김 */
+            position: fixed;
+            z-index: 1000; /* 다른 요소 위에 표시 */
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.4); /* 배경을 어둡게 처리 */
+            backdrop-filter: blur(3px); /* 배경 흐림 효과 (선택 사항) */
+        }
+
+        /* 팝업 창 내용 컨테이너 */
+        .modal-content {
+            background-color: #ffffff;
+            margin: 10% auto; /* 화면 중앙 배치 */
+            padding: 25px 30px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            width: 80%;
+            max-width: 600px;
+            animation: slidein 0.3s ease-out; /* 등장 애니메이션 */
+        }
+
+        /* 닫기 버튼 */
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close-button:hover,
+        .close-button:focus {
+            color: #000;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        /* 제목 클릭 가능하도록 커서 및 밑줄 변경 */
+        .site-header h1 {
+            cursor: pointer;
+            text-decoration: underline; /* 클릭 가능함을 시각적으로 표시 */
+            text-underline-offset: 4px;
+        }
+
+        /* 간단한 애니메이션 */
+        @keyframes slidein {
+            from { opacity: 0; transform: translateY(-30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* --- 모달/팝업 관련 스타일 추가 끝 --- */
+    </style>
 </head>
 
 <body>
-  <header class="site-header">
-    <h1>When Is the Best Time to Ride a Bike Along the Han River?</h1>
+<header class="site-header">
+    <h1 id="project-title-link">When Is the Best Time to Ride a Bike Along the Han River?</h1>
+    
+    <p class="click-info-comment">▲▲▲Click above to view a detailed project introduction.▲▲▲</p>
+    
     <p class="subtitle">
-      An analysis of one full year of bike rental and weather data from Seoul,
-      exploring the ideal time and environmental conditions for a ride along the Han River.
+        An analysis of one full year of bike rental and weather data from Seoul,
+        exploring the ideal time and environmental conditions for a ride along the Han River.
     </p>
-  </header>
+</header>
 
-  <main class="container">
+    <main class="container">
 
-    <!-- Scatter Plot: Daily Rentals Across the Year -->
-    <section class="section" id="vis2-section">
-      <h2 id="scatter-title">Daily Bike Rentals Over the Year (Brush period : None)</h2>
+        <section class="section" id="vis2-section">
+            <h2 id="scatter-title">Daily Bike Rentals Over the Year (Brush period : None)</h2>
 
-      <!-- Scatter plot and legend side-by-side -->
-      <div class="scatter-wrapper" style="display: flex; align-items: flex-start; gap: 20px;">
-        <div id="vis-scatter" class="vis-container" style="flex: 1; min-width: 0;"></div>
-        <div id="scatter-legend" style="flex-shrink: 0;"></div>
-      </div>
-    </section>
+            <div class="scatter-wrapper" style="display: flex; align-items: flex-start; gap: 20px;">
+                <div id="vis-scatter" class="vis-container" style="flex: 1; min-width: 0;"></div>
+                <div id="scatter-legend" style="flex-shrink: 0;"></div>
+            </div>
+        </section>
 
-    <!-- Bar Charts Showing Average Weather Conditions for the Selected Range -->
-    <section class="section" id="vis-bar-section">
-      <h2>How Weather Affected Bike Rentals</h2>
+        <section class="section" id="vis-bar-section">
+            <h2>How Weather Affected Bike Rentals</h2>
 
-      <!-- Weather metric bar charts -->
-      <div class="card bar-charts-container">
-        <div class="vis-bar-wrapper">
-          <h3>Temperature (℃)</h3>
-          <div id="vis-bar-temp" class="vis-bar"></div>
+            <div class="card bar-charts-container">
+                <div class="vis-bar-wrapper">
+                    <h3>Temperature (℃)</h3>
+                    <div id="vis-bar-temp" class="vis-bar"></div>
+                </div>
+
+                <div class="vis-bar-wrapper">
+                    <h3>Humidity (%)</h3>
+                    <div id="vis-bar-humidity" class="vis-bar"></div>
+                </div>
+
+                <div class="vis-bar-wrapper">
+                    <h3>Wind Speed (m/s)</h3>
+                    <div id="vis-bar-wind" class="vis-bar"></div>
+                </div>
+
+                <div class="vis-bar-wrapper">
+                    <h3>Solar Radiation</h3>
+                    <div id="vis-bar-solar" class="vis-bar"></div>
+                </div>
+
+                <div class="vis-bar-wrapper">
+                    <h3>Rainfall (mm)</h3>
+                    <div id="vis-bar-rain" class="vis-bar"></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section" id="vis1-section">
+            <h2>
+                Hourly Rental Patterns (<span id="max-hour-display">--</span>)
+            </h2>
+
+            <div id="vis-heatmap" class="vis-container"></div>
+        </section>
+
+        <section class="section" id="correlation-section">
+            <h2>
+                The Factors Most Strongly Correlated with Bike Rentals
+                <span id="important-factors">--</span>
+            </h2>
+            <div id="vis-corr" class="vis-container"></div>
+        </section>
+
+    </main>
+
+<div id="projectModal" class="modal">
+    <div class="modal-content">
+        <span class="close-button">&times;</span>
+        
+        <div style="text-align: center; margin-bottom: 20px;">
+            <img 
+                src="bike.jpg" 
+                alt="Image of people riding bikes along the Han River" 
+                style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);"
+            />
         </div>
 
-        <div class="vis-bar-wrapper">
-          <h3>Humidity (%)</h3>
-          <div id="vis-bar-humidity" class="vis-bar"></div>
-        </div>
+        <h2>Project Background:</h2>
+        <p>
+            The <strong>Han River</strong> is a major recreational and leisure spot in Seoul, attracting a large number of cyclists. This project aims to visually analyze the peak usage times and the factors (temperature, humidity, rainfall, etc.) influencing ridership by combining <strong>one full year of Seoul bike rental data</strong> with <strong>local weather data</strong>.
+        </p>
+        <p>
+            <strong>Analysis Goal:</strong> Beyond simply counting rentals, the objective was to identify the <strong>"Optimal Time and Environmental Conditions"</strong> for a pleasant and active bike ride, providing valuable insights to the viewers. We used <strong>D3.js</strong> to build an interactive dashboard that allows users to select time periods and explore weather factors and hourly rental patterns.
+        </p>
+        
+        <hr style="border: none; border-top: 1px solid #eee; margin: 15px 0;">
+        
+        <h3>Dataset Information</h3>
+        <ul>
+            <li><strong>Source:</strong> Seoul Public Bike Rental Data & Seoul Local Weather Data (Open Data Portal)</li>
+            <li><strong>Time Period:</strong> 1 Year</li>
+            <li><strong>Size:</strong> Approximately 8,760 hourly records (8,760 hours in a year), resulting in around 365 daily rental records.</li>
+        </ul>
+    </div>
+</div>
 
-        <div class="vis-bar-wrapper">
-          <h3>Wind Speed (m/s)</h3>
-          <div id="vis-bar-wind" class="vis-bar"></div>
-        </div>
+    <script src="main.js"></script>
+    
+    <script>
+        // DOM 요소 가져오기
+        var modal = document.getElementById("projectModal");
+        var btn = document.getElementById("project-title-link"); // h1 제목
+        var span = document.getElementsByClassName("close-button")[0]; // 닫기 버튼
 
-        <div class="vis-bar-wrapper">
-          <h3>Solar Radiation</h3>
-          <div id="vis-bar-solar" class="vis-bar"></div>
-        </div>
+        // 1. h1 제목을 클릭하면 모달 열기
+        btn.onclick = function() {
+            modal.style.display = "block";
+        }
 
-        <div class="vis-bar-wrapper">
-          <h3>Rainfall (mm)</h3>
-          <div id="vis-bar-rain" class="vis-bar"></div>
-        </div>
-      </div>
-    </section>
+        // 2. 닫기 버튼 (x)을 클릭하면 모달 닫기
+        span.onclick = function() {
+            modal.style.display = "none";
+        }
 
-    <!-- Heatmap Showing Hourly Rental Patterns -->
-    <section class="section" id="vis1-section">
-      <h2>
-        Hourly Rental Patterns (<span id="max-hour-display">--</span>)
-      </h2>
-
-      <div id="vis-heatmap" class="vis-container"></div>
-    </section>
-
-    <!-- Correlation Matrix -->
-    <section class="section" id="correlation-section">
-      <h2>
-        The Factors Most Strongly Correlated with Bike Rentals
-        <span id="important-factors">--</span>
-      </h2>
-      <div id="vis-corr" class="vis-container"></div>
-    </section>
-
-  </main>
-
-  <!-- Main JavaScript File -->
-  <script src="main.js"></script>
+        // 3. 모달 외부 영역을 클릭하면 모달 닫기
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+    </script>
 </body>
 </html>
